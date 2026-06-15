@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>海报生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --border: #e8e8e8;
+    --text: #333333;
+    --muted: #999999;
+    --accent: #ff6b35;
+    --accent-hover: #e55a2b;
+    --radius: 8px;
+    --panel-w: 340px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+  }
+
+  /* ===== Editor Panel (left) ===== */
+  .editor-panel {
+    width: var(--panel-w);
+    min-width: var(--panel-w);
+    height: 100%;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 2;
+  }
+
+  .editor-header {
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .editor-body {
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Upload buttons */
+  .upload-row {
+    display: flex;
+    gap: 10px;
+  }
+  .upload-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 11px 6px;
+    background: #fafafa;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .upload-btn:hover { border-color: var(--accent); background: #fff8f5; }
+  .upload-btn:active { background: #f0f0f0; }
+  .upload-btn.uploaded {
+    border-color: var(--accent);
+    border-style: solid;
+    background: #fff8f5;
+    color: var(--accent);
+    font-size: 12px;
+  }
+  .upload-btn svg { flex-shrink: 0; }
+  .upload-btn input[type="file"] { display: none; }
+  .upload-btn.drag-over {
+    border-color: var(--accent);
+    background: #fff0e8;
+    border-style: solid;
+  }
+
+  /* Text inputs */
+  .input-group {
+    background: #fafafa;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .input-group input,
+  .input-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text);
+    background: transparent;
+    outline: none;
+    resize: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+    transition: background 0.15s;
+  }
+  .input-group input:focus,
+  .input-group textarea:focus { background: #fff; }
+  .input-group input:last-child,
+  .input-group textarea:last-child { border-bottom: none; }
+  .input-group input::placeholder,
+  .input-group textarea::placeholder { color: #c0c0c0; }
+  .input-group textarea {
+    min-height: 72px;
+    line-height: 1.5;
+  }
+  .char-hint {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 14px 8px;
+  }
+
+  /* Upload hints */
+  .hint-text {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+  .hint-text.ok { color: #16a34a; }
+  .hint-text.err { color: #dc2626; }
+
+  /* Download button */
+  .download-section {
+    flex-shrink: 0;
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .download-btn:hover { background: var(--accent-hover); }
+  .download-btn:active { background: var(--accent-hover); }
+  .download-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .download-btn svg { flex-shrink: 0; }
+
+  /* ===== Preview Panel (right) ===== */
+  .preview-panel {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #e8ecf1;
+  }
+  .preview-card {
+    background: var(--surface);
+    border-radius: 4px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-card canvas {
+    display: block;
+    max-width: calc(100vw - var(--panel-w) - 48px);
+    max-height: calc(100vh - 48px);
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.78);
+    color: #fff;
+    padding: 10px 22px;
+    border-radius: 20px;
+    font-size: 13px;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ===== Loading spinner ===== */
+  .spinner-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    pointer-events: all;
+  }
+  .spinner-overlay.hidden { display: none; }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  input[type="file"] { display: none; }
+
+  /* ===== Mobile: stack vertically ===== */
+  @media (max-width: 768px) {
+    body {
+      flex-direction: column;
+    }
+    .editor-panel {
+      width: 100%;
+      max-height: 42vh;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .editor-body { gap: 10px; }
+    .preview-panel {
+      flex: 1;
+      min-height: 0;
+      padding: 12px;
+    }
+    .preview-card canvas {
+      max-width: calc(100vw - 24px);
+      max-height: calc(58vh - 24px);
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Editor Panel (left) ===== -->
+<div class="editor-panel">
+  <div class="editor-header">海报编辑器</div>
+
+  <div class="editor-body">
+
+    <div class="upload-row">
+      <label class="upload-btn" id="portraitBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+        <span id="portraitLabel">上传人像</span>
+        <input type="file" id="portraitInput" accept="image/jpeg,image/png" hidden>
+      </label>
+      <label class="upload-btn" id="qrBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="15" y="15" width="1" height="1"/><rect x="18" y="15" width="1" height="1"/><rect x="15" y="18" width="1" height="1"/><rect x="18" y="18" width="1" height="1"/></svg>
+        <span id="qrLabel">上传二维码</span>
+        <input type="file" id="qrInput" accept="image/jpeg,image/png" hidden>
+      </label>
+    </div>
+    <div class="hint-text" id="portraitHint">支持 JPG/PNG，≤10MB，可直接拖拽或上传</div>
+    <div class="hint-text" id="qrHint">支持 JPG/PNG，≤5MB，可直接拖拽或上传</div>
+
+    <div class="input-group">
+      <input type="text" id="nameInput" placeholder="姓名（≤12字符）" maxlength="12">
+      <input type="text" id="deptInput" placeholder="所属部门（≤20字符）" maxlength="20">
+      <textarea id="bioInput" placeholder="个人简介（≤180字符）" maxlength="180"></textarea>
+      <div class="char-hint"><span id="bioCount">0</span>/180</div>
+    </div>
+  </div>
+
+  <div class="download-section">
+    <button class="download-btn" id="downloadBtn" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      保存海报
+    </button>
+  </div>
+</div>
+
+<!-- ===== Preview Panel (right) ===== -->
+<div class="preview-panel" id="previewPanel">
+  <div class="preview-card" id="previewCard">
+    <canvas id="previewCanvas"></canvas>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Loading -->
+<div class="spinner-overlay hidden" id="spinner">
+  <div class="spinner"></div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4.1646425229/face_detection.js" crossorigin="anonymous"></script>
+<script src="jsQR.js"></script>
+<script src="qrcode-generator.min.js"></script>
+
+<script>
+// ==================== DOM refs ====================
+const $ = (s) => document.querySelector(s);
+const previewPanel = $('#previewPanel');
+const previewCard = $('#previewCard');
+const previewCanvas = $('#previewCanvas');
+const previewCtx = previewCanvas.getContext('2d');
+const portraitBtn = $('#portraitBtn');
+const portraitLabel = $('#portraitLabel');
+const portraitInput = $('#portraitInput');
+const qrBtn = $('#qrBtn');
+const qrLabel = $('#qrLabel');
+const qrInput = $('#qrInput');
+const nameInput = $('#nameInput');
+const deptInput = $('#deptInput');
+const bioInput = $('#bioInput');
+const bioCount = $('#bioCount');
+const downloadBtn = $('#downloadBtn');
+const toastEl = $('#toast');
+const spinner = $('#spinner');
+const portraitHint = $('#portraitHint');
+const qrHint = $('#qrHint');
+
+// ==================== Constants ====================
+const TPL_W = 3094;
+const TPL_H = 5500;
+
+const AVATAR_CX = 1545;
+const AVATAR_CY = 1290;
+const AVATAR_R = 598;
+
+const QR_CX = 970;
+const QR_CY = 5090;
+const QR_SIDE = 730;
+
+const NAME_CX = 1545;
+const NAME_CY = 2100;
+const NAME_MAX_W = 1200;
+const NAME_FS_MIN = 170;
+const NAME_FS_MAX = 170;
+
+const DEPT_CX = 1545;
+const DEPT_CY = 2380;
+const DEPT_MAX_W = 1800;
+const DEPT_FS_MIN = 90;
+const DEPT_FS_MAX = 110;
+
+const BIO_X = 1545;
+const BIO_START_Y = 2530;
+const BIO_MAX_W = 2300;
+const BIO_FS_MIN = 90;
+const BIO_FS_MAX = 90;
+const BIO_LINE_H = 1.4;
+
+// ==================== State ====================
+const state = {
+  template: null,
+  portraitCrop: null,
+  qrCrop: null,
+};
+
+// Output canvas (full resolution)
+const outCanvas = document.createElement('canvas');
+outCanvas.width = TPL_W;
+outCanvas.height = TPL_H;
+const outCtx = outCanvas.getContext('2d');
+
+// ==================== Toast ====================
+let toastTimer;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2000);
+}
+
+// ==================== Spinner ====================
+function showSpinner() { spinner.classList.remove('hidden'); }
+function hideSpinner() { spinner.classList.add('hidden'); }
+
+// ==================== Image loaders ====================
+// Safari sometimes fails createImageBitmap for HEIC / EXIF-rotated / large images.
+// We try createImageBitmap first, fall back to HTMLImageElement via object URL.
+async function loadImageFromFile(file) {
+  if (!file) throw new Error('No file');
+
+  if (typeof createImageBitmap === 'function') {
+    try {
+      // Safari applies the display color profile by default, which shifts QR pixel values
+      // enough to break jsQR binarization. Disable color conversion + premultiply for raw bytes.
+      let bmp;
+      try {
+        bmp = await createImageBitmap(file, {
+          colorSpaceConversion: 'none',
+          premultiplyAlpha: 'none',
+        });
+      } catch (_) {
+        // Older browsers reject options object — retry without
+        bmp = await createImageBitmap(file);
+      }
+      if (bmp && bmp.width > 0 && bmp.height > 0) {
+        console.log('[load] createImageBitmap ok:', bmp.width, 'x', bmp.height);
+        return bmp;
+      }
+      console.warn('[load] createImageBitmap returned invalid bitmap, using <img> fallback');
+    } catch (e) {
+      console.warn('[load] createImageBitmap failed, using <img> fallback:', e?.message || e);
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      console.log('[load] <img> ok:', img.naturalWidth, 'x', img.naturalHeight);
+      // Shim .close() so callers can release uniformly
+      img.close = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+      resolve(img);
+    };
+    img.onerror = () => {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      reject(new Error('图片加载失败（浏览器不支持该格式或文件已损坏）'));
+    };
+    img.src = url;
+  });
+}
+
+function loadTemplate() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      const img2 = new Image();
+      img2.onload = () => resolve(img2);
+      img2.onerror = () => reject(new Error('Template load failed'));
+      img2.src = 'poster-template.jpg?t=' + Date.now();
+    };
+    img.src = 'poster-template.jpg';
+  });
+}
+
+// ==================== AI: Face Detection (MediaPipe v0.4) ====================
+let faceDetector = null;
+let faceDetectorReady = false;
+let faceDetectorInitPromise = null;
+
+async function initFaceDetector() {
+  if (faceDetectorInitPromise) return faceDetectorInitPromise;
+
+  faceDetectorInitPromise = (async () => {
+    if (typeof FaceDetection === 'undefined') {
+      console.warn('MediaPipe Face Detection CDN not loaded');
+      return false;
+    }
+    try {
+      faceDetector = new FaceDetection({
+        locateFile: (file) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection@0.4.1646425229/${file}`
+      });
+      faceDetector.setOptions({
+        model: 'short',
+        minDetectionConfidence: 0.5,
+      });
+      await faceDetector.initialize();
+      faceDetectorReady = true;
+      console.log('MediaPipe Face Detector ready');
+      return true;
+    } catch (e) {
+      console.warn('MediaPipe init failed:', e);
+      return false;
+    }
+  })();
+
+  return faceDetectorInitPromise;
+}
+
+function detectFaceWithMediaPipe(img) {
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const timer = setTimeout(() => {
+      if (!resolved) { resolved = true; resolve(null); }
+    }, 8000);
+
+    faceDetector.onResults((results) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+
+      if (!results.detections || results.detections.length === 0) {
+        resolve(null);
+        return;
+      }
+
+      const d = results.detections[0];
+      const W = img.naturalWidth || img.width;
+      const H = img.naturalHeight || img.height;
+
+      const lm = d.landmarks.map(p => ({ x: p.x * W, y: p.y * H }));
+      // landmarks: 0=leftEye, 1=rightEye, 2=noseTip, 3=mouth, 4=leftEar, 5=rightEar
+      const leftEye = lm[0], rightEye = lm[1];
+      const mouth = lm[3], leftEar = lm[4], rightEar = lm[5];
+
+      const cx = (leftEye.x + rightEye.x) / 2;
+      const eyesMidY = (leftEye.y + rightEye.y) / 2;
+      const cy = eyesMidY + (mouth.y - eyesMidY) * 0.45;
+
+      const earDist = Math.abs(rightEar.x - leftEar.x);
+      const eyeDist = Math.abs(rightEye.x - leftEye.x);
+      const faceW = earDist > eyeDist * 0.6 ? earDist * 1.1 : eyeDist * 2.8;
+
+      resolve({ cx, cy, faceW, W, H });
+    });
+
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || img.width;
+    c.height = img.naturalHeight || img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    faceDetector.send({ image: c });
+  });
+}
+
+async function detectAndCropPortrait(img) {
+  const W = img.naturalWidth || img.width;
+  const H = img.naturalHeight || img.height;
+
+  // Try MediaPipe face detection
+  if (!faceDetectorReady && faceDetectorInitPromise) {
+    await faceDetectorInitPromise;
+  }
+
+  if (faceDetectorReady) {
+    try {
+      const face = await detectFaceWithMediaPipe(img);
+      if (face) {
+        const { cx, cy, faceW } = face;
+        let size = Math.round(Math.min(faceW * 3.7, Math.min(W, H)));
+        size = Math.min(size,
+          Math.floor(cx * 2), Math.floor((W - cx) * 2),
+          Math.floor(cy * 2), Math.floor((H - cy) * 2)
+        );
+        size = Math.max(1, size);
+
+        const sx = Math.round(cx - size / 2);
+        const sy = Math.round(cy - size / 2);
+
+        const crop = document.createElement('canvas');
+        crop.width = crop.height = 600;
+        crop.getContext('2d').drawImage(img, sx, sy, size, size, 0, 0, 600, 600);
+        return { canvas: crop, detected: true };
+      }
+    } catch (e) {
+      console.warn('Face detection error:', e);
+    }
+  }
+
+  // Fallback: center crop
+  const sz = Math.min(W, H) * 0.85;
+  const sx = Math.round((W - sz) / 2);
+  const sy = Math.round((H - sz) / 2);
+  const crop = document.createElement('canvas');
+  crop.width = crop.height = 600;
+  crop.getContext('2d').drawImage(img, sx, sy, sz, sz, 0, 0, 600, 600);
+  return { canvas: crop, detected: false };
+}
+
+// ==================== AI: QR Detection (jsQR + BarcodeDetector) ====================
+
+// Try jsQR at multiple scales. mode='raw' uses RGBA as-is; mode='binarized' converts
+// to hard black-and-white (bypasses Safari color profile / gamma quirks).
+function jsQRMultiScale(img, mode, tag) {
+  if (typeof jsQR === 'undefined') return null;
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  const maxDim = Math.max(w, h);
+  const scaleCandidates = [
+    1,
+    Math.min(1, 2048 / maxDim),
+    Math.min(1, 1600 / maxDim),
+    Math.min(1, 1024 / maxDim),
+    Math.min(1, 768 / maxDim),
+  ];
+  const scales = [...new Set(scaleCandidates)].sort((a, b) => b - a);
+
+  for (const scale of scales) {
+    const scanW = Math.max(1, Math.round(w * scale));
+    const scanH = Math.max(1, Math.round(h * scale));
+    try {
+      const scanCanvas = document.createElement('canvas');
+      scanCanvas.width = scanW;
+      scanCanvas.height = scanH;
+      const scanCtx = scanCanvas.getContext('2d');
+      scanCtx.imageSmoothingEnabled = false;
+      if ('webkitImageSmoothingEnabled' in scanCtx) scanCtx.webkitImageSmoothingEnabled = false;
+      scanCtx.drawImage(img, 0, 0, scanW, scanH);
+      const imageData = scanCtx.getImageData(0, 0, scanW, scanH);
+
+      const data = imageData.data;
+      if (mode === 'binarized') {
+        // Compute mean luminance, then hard-threshold
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          sum += 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        }
+        const threshold = sum / (data.length / 4);
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+          const bw = gray > threshold ? 255 : 0;
+          data[i] = data[i+1] = data[i+2] = bw;
+        }
+      }
+
+      let result = jsQR(data, scanW, scanH);
+      if (!result) {
+        const inv = new Uint8ClampedArray(data);
+        for (let i = 0; i < inv.length; i += 4) {
+          inv[i] = 255 - inv[i];
+          inv[i+1] = 255 - inv[i+1];
+          inv[i+2] = 255 - inv[i+2];
+        }
+        result = jsQR(inv, scanW, scanH);
+      }
+      if (result && result.data) {
+        console.log(`[qr] ${tag}/${mode} ok @ ${scanW}x${scanH} →`, result.data.slice(0, 60));
+        return result.data;
+      }
+      console.log(`[qr] ${tag}/${mode} miss @ ${scanW}x${scanH}`);
+    } catch (e) {
+      console.warn(`[qr] ${tag}/${mode} error @ ${scanW}x${scanH}:`, e?.message || e);
+    }
+  }
+  return null;
+}
+
+// Load file via HTMLImageElement (different decode pipeline than createImageBitmap —
+// helps when Safari's createImageBitmap path produces pixels jsQR can't read).
+function loadViaHTMLImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      img.close = () => { try { URL.revokeObjectURL(url); } catch (_) {} };
+      resolve(img);
+    };
+    img.onerror = () => {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      reject(new Error('htmlimg load failed'));
+    };
+    img.src = url;
+  });
+}
+
+async function detectAndCropQR(img, fallbackFile) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  console.log('[qr] input:', w, 'x', h);
+
+  let qrData = null;
+
+  // Pass 1: jsQR raw on the primary image
+  qrData = jsQRMultiScale(img, 'raw', 'A');
+
+  // Pass 2: jsQR binarized (bypasses Safari color management quirks)
+  if (!qrData) qrData = jsQRMultiScale(img, 'binarized', 'A');
+
+  // Pass 3: BarcodeDetector (Safari 17+ / Chromium)
+  if (!qrData && typeof BarcodeDetector !== 'undefined') {
+    try {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const results = await detector.detect(img);
+      if (results.length > 0 && results[0].rawValue) {
+        qrData = results[0].rawValue;
+        console.log('[qr] BarcodeDetector ok →', qrData.slice(0, 60));
+      } else {
+        console.log('[qr] BarcodeDetector returned 0 results');
+      }
+    } catch (e) {
+      console.warn('[qr] BarcodeDetector error:', e?.message || e);
+    }
+  }
+
+  // Pass 4: re-decode via HTMLImageElement (different pipeline — bypasses
+  // createImageBitmap quirks entirely). Only if primary img was ImageBitmap.
+  if (!qrData && fallbackFile && (typeof ImageBitmap !== 'undefined') && (img instanceof ImageBitmap)) {
+    console.log('[qr] retrying via HTMLImageElement decode path');
+    try {
+      const htmlImg = await loadViaHTMLImage(fallbackFile);
+      qrData = jsQRMultiScale(htmlImg, 'raw', 'B') || jsQRMultiScale(htmlImg, 'binarized', 'B');
+      htmlImg.close();
+    } catch (e) {
+      console.warn('[qr] HTMLImageElement fallback failed:', e?.message || e);
+    }
+  }
+
+  // --- Generate clean QR code ---
+  if (qrData && typeof qrcode !== 'undefined') {
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(qrData);
+      qr.make();
+      const modCount = qr.getModuleCount();
+      const outSize = 600;
+      const margin = 1; // modules
+      const cellSize = Math.floor(outSize / (modCount + margin * 2));
+      const padX = Math.floor((outSize - cellSize * modCount) / 2);
+      const padY = Math.floor((outSize - cellSize * modCount) / 2);
+      const outCanvas = document.createElement('canvas');
+      outCanvas.width = outCanvas.height = outSize;
+      const ctx = outCanvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, outSize, outSize);
+      ctx.fillStyle = '#000000';
+      for (let row = 0; row < modCount; row++) {
+        for (let col = 0; col < modCount; col++) {
+          if (qr.isDark(row, col)) {
+            ctx.fillRect(padX + col * cellSize, padY + row * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+      return { canvas: outCanvas, detected: true };
+    } catch (e) {
+      console.warn('QR generation failed:', e);
+    }
+  }
+
+  // --- Fallback: center crop ---
+  const reason = !qrData
+    ? '未识别到二维码'
+    : (typeof qrcode === 'undefined' ? '生成库未加载（qrcode-generator）' : '生成失败');
+  return { canvas: centerCrop(img), detected: false, reason };
+}
+
+function centerCrop(img) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  const side = Math.min(iw, ih);
+  const cx = iw / 2;
+  const cy = ih / 2;
+  const half = side / 2;
+
+  const cropCanvas = document.createElement('canvas');
+  cropCanvas.width = side;
+  cropCanvas.height = side;
+  const cropCtx = cropCanvas.getContext('2d');
+  cropCtx.fillStyle = '#ffffff';
+  cropCtx.fillRect(0, 0, side, side);
+  cropCtx.drawImage(img, cx - half, cy - half, side, side, 0, 0, side, side);
+
+  return cropCanvas;
+}
+
+// ==================== Text auto-size ====================
+function fitTextSize(ctx, text, maxWidth, minSize, maxSize, fontFamily, bold) {
+  const weight = bold ? 'bold ' : '';
+  let lo = minSize, hi = maxSize, best = minSize;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    ctx.font = `${weight}${mid}px ${fontFamily}`;
+    if (ctx.measureText(text).width <= maxWidth) { best = mid; lo = mid + 1; }
+    else { hi = mid - 1; }
+  }
+  return best;
+}
+
+function wrapText(ctx, text, maxWidth, fontSize, fontFamily) {
+  ctx.font = `${fontSize}px ${fontFamily}`;
+  const lines = [];
+  let current = '';
+  for (const ch of text) {
+    const test = current + ch;
+    if (ctx.measureText(test).width > maxWidth && current.length > 0) {
+      lines.push(current);
+      current = ch;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// ==================== Render ====================
+function render() {
+  const { template, portraitCrop, qrCrop } = state;
+  if (!template) return;
+
+  const ctx = outCtx;
+  const name = nameInput.value.trim();
+  const dept = deptInput.value.trim();
+  const bioRaw = bioInput.value;
+
+  ctx.clearRect(0, 0, TPL_W, TPL_H);
+  ctx.drawImage(template, 0, 0, TPL_W, TPL_H);
+
+  if (portraitCrop) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(AVATAR_CX, AVATAR_CY, AVATAR_R, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    const dia = AVATAR_R * 2;
+    ctx.drawImage(portraitCrop, AVATAR_CX - AVATAR_R, AVATAR_CY - AVATAR_R, dia, dia);
+    ctx.restore();
+  }
+
+  if (qrCrop) {
+    const half = QR_SIDE / 2;
+    ctx.drawImage(qrCrop, QR_CX - half, QR_CY - half, QR_SIDE, QR_SIDE);
+  }
+
+  const fontFamily = "'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif";
+  const nameFont = "'Noto Sans SC', 'PingFang SC', sans-serif";
+
+  if (name) {
+    const fs = fitTextSize(ctx, name, NAME_MAX_W, NAME_FS_MIN, NAME_FS_MAX, nameFont, true);
+    ctx.font = `bold ${fs}px ${nameFont}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 3D extrusion layers — draw dark strokes offset progressively
+    const layers = [
+      { x: 8, y: 8, w: 4, c: '#1a1a1a' },
+      { x: 6, y: 6, w: 4, c: '#333333' },
+      { x: 4, y: 4, w: 4, c: '#4a4a4a' },
+      { x: 2, y: 2, w: 5, c: '#666666' },
+    ];
+    layers.forEach(l => {
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = l.c;
+      ctx.lineWidth = l.w;
+      ctx.strokeText(name, NAME_CX + l.x, NAME_CY + l.y);
+    });
+
+    // Dark shadow behind
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 5;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 30;
+    ctx.strokeText(name, NAME_CX, NAME_CY);
+
+    // White fill on top
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(name, NAME_CX, NAME_CY);
+
+    // Top-left highlight for 3D bevel
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.strokeText(name, NAME_CX - 1, NAME_CY - 1);
+  }
+
+  if (dept) {
+    const fs = fitTextSize(ctx, dept, DEPT_MAX_W, DEPT_FS_MIN, DEPT_FS_MAX, fontFamily, true);
+    ctx.font = `bold ${fs}px ${fontFamily}`;
+    ctx.fillStyle = '#1a1a1a';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dept, DEPT_CX, DEPT_CY);
+  }
+
+  if (bioRaw.trim()) {
+    const fs = fitTextSize(ctx, bioRaw, BIO_MAX_W, BIO_FS_MIN, BIO_FS_MAX, fontFamily, false);
+    const lines = wrapText(ctx, bioRaw, BIO_MAX_W, fs, fontFamily);
+    const lineH = fs * BIO_LINE_H;
+
+    // Measure widest line for block centering
+    ctx.font = `${fs}px ${fontFamily}`;
+    let maxLineW = 0;
+    lines.slice(0, 10).forEach(line => {
+      const w = ctx.measureText(line).width;
+      if (w > maxLineW) maxLineW = w;
+    });
+    const leftX = BIO_X - maxLineW / 2;
+
+    ctx.fillStyle = '#333333';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    lines.slice(0, 10).forEach((line, i) => {
+      ctx.fillText(line, leftX, BIO_START_Y + i * lineH);
+    });
+  }
+
+  updatePreview();
+  downloadBtn.disabled = false;
+}
+
+function updatePreview() {
+  const panelW = previewPanel.clientWidth;
+  const panelH = previewPanel.clientHeight;
+  if (!panelW || !panelH) return;
+
+  // Available space inside panel (minus padding 24px each side)
+  const availW = panelW - 48;
+  const availH = panelH - 48;
+
+  const scaleX = availW / TPL_W;
+  const scaleY = availH / TPL_H;
+  const scale = Math.min(scaleX, scaleY);
+
+  const canvasW = Math.floor(TPL_W * scale);
+  const canvasH = Math.floor(TPL_H * scale);
+
+  const dpr = window.devicePixelRatio || 1;
+  previewCanvas.width = canvasW * dpr;
+  previewCanvas.height = canvasH * dpr;
+  previewCanvas.style.width = canvasW + 'px';
+  previewCanvas.style.height = canvasH + 'px';
+
+  previewCtx.setTransform(1, 0, 0, 1, 0, 0);
+  previewCtx.scale(dpr, dpr);
+  previewCtx.clearRect(0, 0, canvasW, canvasH);
+  previewCtx.drawImage(outCanvas, 0, 0, TPL_W, TPL_H, 0, 0, canvasW, canvasH);
+}
+
+// Native label wrapping handles click — no programmatic .click() needed
+
+// ==================== Upload processing ====================
+async function handlePortraitFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    toast('人像照片不能超过 10MB');
+    return;
+  }
+  showSpinner();
+  portraitHint.textContent = '正在 AI 识别人脸…';
+  portraitHint.className = 'hint-text';
+  try {
+    const img = await loadImageFromFile(file);
+    const result = await detectAndCropPortrait(img);
+    img.close();
+    state.portraitCrop = result.canvas;
+    portraitLabel.textContent = file.name.length > 10
+      ? file.name.slice(0, 8) + '…' : file.name;
+    portraitBtn.classList.add('uploaded');
+    portraitHint.textContent = result.detected
+      ? 'AI 已识别人脸，面部居中裁剪'
+      : '未检测到人脸，使用居中裁剪';
+    portraitHint.className = 'hint-text ' + (result.detected ? 'ok' : '');
+    render();
+  } catch (err) {
+    console.error('Portrait processing failed:', err);
+    portraitHint.textContent = '处理失败：' + err.message;
+    portraitHint.className = 'hint-text err';
+    toast('人像处理失败，请重试');
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function handleQRFile(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    toast('二维码图片不能超过 5MB');
+    return;
+  }
+  showSpinner();
+  qrHint.textContent = '正在识别二维码…';
+  qrHint.className = 'hint-text';
+  try {
+    const img = await loadImageFromFile(file);
+    const result = await detectAndCropQR(img, file);
+    img.close();
+    state.qrCrop = result.canvas;
+    qrLabel.textContent = file.name.length > 10
+      ? file.name.slice(0, 8) + '…' : file.name;
+    qrBtn.classList.add('uploaded');
+    if (result.detected) {
+      qrHint.textContent = '二维码已识别并裁剪';
+      qrHint.className = 'hint-text ok';
+    } else {
+      qrHint.textContent = '未能识别二维码（' + (result.reason || '原因未知') + '），已使用居中裁剪';
+      qrHint.className = 'hint-text err';
+    }
+    render();
+  } catch (err) {
+    console.error('QR processing failed:', err);
+    qrHint.textContent = '处理失败：' + err.message;
+    qrHint.className = 'hint-text err';
+    toast('二维码处理失败，请重试');
+  } finally {
+    hideSpinner();
+  }
+}
+
+portraitInput.addEventListener('change', (e) => handlePortraitFile(e.target.files[0]));
+qrInput.addEventListener('change', (e) => handleQRFile(e.target.files[0]));
+
+// ==================== Drag & drop ====================
+function setupDragDrop(btn, handler, acceptType) {
+  btn.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btn.classList.add('drag-over');
+  });
+  btn.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btn.classList.add('drag-over');
+  });
+  btn.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btn.classList.remove('drag-over');
+  });
+  btn.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    btn.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (!file.type.startsWith('image/')) {
+        toast('请拖入图片文件');
+        return;
+      }
+      handler(file);
+    }
+  });
+}
+
+setupDragDrop(portraitBtn, handlePortraitFile);
+setupDragDrop(qrBtn, handleQRFile);
+
+// ==================== Text input handlers ====================
+nameInput.addEventListener('input', render);
+deptInput.addEventListener('input', render);
+bioInput.addEventListener('input', () => {
+  bioCount.textContent = bioInput.value.length;
+  render();
+});
+
+// ==================== Download ====================
+downloadBtn.addEventListener('click', () => {
+  const name = nameInput.value.trim() || '未命名';
+  const ds = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  outCanvas.toBlob((blob) => {
+    if (!blob) { toast('生成失败，请重试'); return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}_海报_${ds}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('海报已保存');
+  }, 'image/png');
+});
+
+// ==================== Init ====================
+async function init() {
+  try {
+    state.template = await loadTemplate();
+    if (state.template.naturalWidth !== TPL_W || state.template.naturalHeight !== TPL_H) {
+      console.warn(
+        `Template dimensions mismatch: expected ${TPL_W}x${TPL_H}, got ${state.template.naturalWidth}x${state.template.naturalHeight}`
+      );
+    }
+    // Always render on load — show the blank template immediately
+    render();
+    // Preload face detector in background
+    initFaceDetector().then(ok => {
+      if (ok) console.log('MediaPipe ready');
+    });
+  } catch (err) {
+    console.error('Init failed:', err);
+    toast('模板加载失败，请刷新页面重试');
+  }
+}
+
+window.addEventListener('resize', () => {
+  if (state.template) updatePreview();
+});
+
+// Warn if QR libraries failed to load (CDN block / network)
+(function checkLibs() {
+  const missing = [];
+  if (typeof jsQR === 'undefined') missing.push('jsQR');
+  if (typeof qrcode === 'undefined') missing.push('qrcode-generator');
+  if (missing.length > 0) {
+    console.error('Missing libraries:', missing.join(', '));
+    qrHint.textContent = '⚠️ 二维码功能不可用：' + missing.join('、') + ' 未加载';
+    qrHint.className = 'hint-text err';
+  }
+})();
+
+init();
+</script>
+</body>
+</html>
